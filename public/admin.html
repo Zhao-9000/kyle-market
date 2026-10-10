@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Kyle Market</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-4 min-h-screen">
+  <div class="max-w-4xl mx-auto">
+    <header class="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+      <h1 class="text-2xl font-bold text-indigo-400">Admin Dashboard</h1>
+      <a href="/" class="text-sm bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded border border-gray-600">Buka Web Klien</a>
+    </header>
+
+    <!-- Form Tambah Opsi Jualan Baru -->
+    <section class="bg-gray-800 p-6 rounded-lg mb-8 shadow-lg border border-gray-700">
+      <h2 class="text-xl font-semibold mb-4 text-indigo-300">Tambah Opsi Jualan Baru</h2>
+      <form id="add-product-form" onsubmit="addProduct(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm mb-1">Nama Produk / Jasa:</label>
+          <input type="text" id="p-title" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="misal: Alight Motion Premium 1 Tahun">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm mb-1">Kategori:</label>
+            <select id="p-category" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white">
+              <option value="Jasa Desain">Jasa Desain</option>
+              <option value="Jasa Editing">Jasa Editing Foto/Video</option>
+              <option value="E-Book">E-Book Digital</option>
+              <option value="Lisensi / Akun">Lisensi / Akun Premium</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">Harga Total (Rp):</label>
+            <input type="number" id="p-price" required class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="15000">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1">Deskripsi Singkat:</label>
+          <textarea id="p-desc" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" rows="2" placeholder="Penjelasan singkat produk/jasa..."></textarea>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="p-allow-dp" onchange="toggleDpInput()" class="w-4 h-4">
+          <label for="p-allow-dp" class="text-sm">Izinkan Pembayaran DP (Down Payment)</label>
+        </div>
+
+        <div id="dp-amount-container" class="hidden">
+          <label class="block text-sm mb-1">Minimal DP (Rp):</label>
+          <input type="number" id="p-min-dp" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="5000">
+        </div>
+
+        <div>
+          <label class="block text-sm mb-1">Link File Digital / Bahan (Opsional):</label>
+          <input type="text" id="p-file-url" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white" placeholder="Link Google Drive / Cloudinary">
+        </div>
+
+        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded">
+          + Tambahkan ke Katalog
+        </button>
+      </form>
+    </section>
+
+    <!-- Daftar Pesanan Masuk -->
+    <section class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-indigo-300">Daftar Pesanan Masuk</h2>
+        <button onclick="loadOrders()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">🔄 Refresh</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-gray-300">
+          <thead class="bg-gray-700 text-gray-200 uppercase text-xs">
+            <tr>
+              <th class="p-3">ID</th>
+              <th class="p-3">Klien & WA</th>
+              <th class="p-3">Produk</th>
+              <th class="p-3">Tipe / Bayar</th>
+              <th class="p-3">Status</th>
+              <th class="p-3">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="orders-table-body">
+            <tr>
+              <td colspan="6" class="p-4 text-center text-gray-500">Memuat pesanan...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function toggleDpInput() {
+      const isChecked = document.getElementById('p-allow-dp').checked;
+      document.getElementById('dp-amount-container').classList.toggle('hidden', !isChecked);
+    }
+
+    async function addProduct(e) {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('p-title').value,
+        category: document.getElementById('p-category').value,
+        description: document.getElementById('p-desc').value,
+        price: parseFloat(document.getElementById('p-price').value),
+        allow_dp: document.getElementById('p-allow-dp').checked,
+        min_dp_amount: parseFloat(document.getElementById('p-min-dp').value) || 0,
+        file_url: document.getElementById('p-file-url').value
+      };
+
+      const res = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      alert(data.message);
+      document.getElementById('add-product-form').reset();
+      document.getElementById('dp-amount-container').classList.add('hidden');
+    }
+
+    async function loadOrders() {
+      const res = await fetch('/api/admin/orders');
+      const orders = await res.json();
+      const tbody = document.getElementById('orders-table-body');
+
+      if (orders.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-500">Belum ada pesanan masuk.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = orders.map(o => `
+        <tr class="border-b border-gray-700 hover:bg-gray-750">
+          <td class="p-3 font-bold text-indigo-400">#${o.id}</td>
+          <td class="p-3">
+            <div class="font-bold text-white">${o.client_name}</div>
+            <a href="https://wa.me/${o.client_whatsapp.replace(/[^0-9]/g, '')}" target="_blank" class="text-xs text-green-400 hover:underline">
+              📱 ${o.client_whatsapp}
+            </a>
+          </td>
+          <td class="p-3 font-medium">${o.product_title || 'Produk Dihapus'}</td>
+          <td class="p-3">
+            <span class="text-xs px-2 py-0.5 rounded ${o.payment_type === 'DP' ? 'bg-yellow-900 text-yellow-300' : 'bg-green-900 text-green-300'} font-bold">
+              ${o.payment_type}
+            </span>
+            <div class="text-xs text-gray-400 mt-1">Bayar: Rp ${o.paid_amount.toLocaleString('id-ID')} (${o.payment_method})</div>
+          </td>
+          <td class="p-3">
+            <select onchange="updateStatus(${o.id}, this.value)" class="bg-gray-700 text-xs border border-gray-600 rounded p-1 text-white">
+              <option value="PENDING" ${o.status === 'PENDING' ? 'selected' : ''}>⏳ PENDING</option>
+              <option value="IN_PROGRESS" ${o.status === 'IN_PROGRESS' ? 'selected' : ''}>⚙️ IN_PROGRESS</option>
+              <option value="COMPLETED" ${o.status === 'COMPLETED' ? 'selected' : ''}>✅ COMPLETED</option>
+            </select>
+          </td>
+          <td class="p-3">
+            <a href="https://wa.me/${o.client_whatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Halo ${o.client_name}, mengenai pesanan #${o.id} (${o.product_title})...`)}" 
+               target="_blank" class="text-xs bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded">
+              Chat WA
+            </a>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function updateStatus(id, newStatus) {
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>
+

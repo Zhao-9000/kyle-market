@@ -1,0 +1,221 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kyle Market - Store & Services</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 p-4">
+  <div class="max-w-2xl mx-auto">
+    <header class="text-center my-6">
+      <h1 class="text-3xl font-bold text-indigo-600">Kyle Market</h1>
+      <p class="text-gray-600">Jasa Desain, E-Book & Produk Digital Premium</p>
+    </header>
+
+    <!-- Katalog Produk -->
+    <section>
+      <h2 class="text-xl font-semibold mb-4">Katalog Produk & Jasa</h2>
+      <div id="product-list" class="grid grid-cols-1 gap-4">
+        <p class="text-gray-500 text-center py-4">Memuat katalog...</p>
+      </div>
+    </section>
+
+    <!-- Modal Form Pemesanan -->
+    <div id="order-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+        
+        <!-- STEP 1: Form Isi Data -->
+        <div id="step-form">
+          <h3 id="modal-title" class="text-lg font-bold mb-1">Form Pemesanan</h3>
+          <p id="modal-price" class="text-indigo-600 font-semibold mb-4"></p>
+          
+          <form id="order-form" onsubmit="submitOrder(event)">
+            <label class="block mb-1 text-sm font-medium">Nama Lengkap:</label>
+            <input type="text" id="client-name" required class="w-full border p-2 rounded mb-3" placeholder="Masukkan nama kamu">
+
+            <label class="block mb-1 text-sm font-medium">Nomor WhatsApp:</label>
+            <input type="tel" id="client-wa" required class="w-full border p-2 rounded mb-3" placeholder="08xxxxxxxxxx">
+
+            <label class="block mb-1 text-sm font-medium">Tipe Pembayaran:</label>
+            <select id="payment-type" onchange="updatePaymentDetails()" class="w-full border p-2 rounded mb-3">
+              <option value="FULL">Bayar Lunas</option>
+              <option value="DP" id="dp-option">Bayar DP</option>
+            </select>
+
+            <label class="block mb-1 text-sm font-medium">Metode Pembayaran:</label>
+            <select id="payment-method" class="w-full border p-2 rounded mb-4">
+              <option value="QRIS">QRIS All Payment</option>
+              <option value="DANA">DANA / E-Wallet</option>
+              <option value="BANK">Transfer Bank (BCA/Mandiri/BRI)</option>
+            </select>
+
+            <div class="bg-indigo-50 border border-indigo-100 p-3 rounded mb-4 text-sm">
+              Total Bayar Sekarang: <span id="pay-amount" class="font-bold text-indigo-600">Rp 0</span>
+            </div>
+
+            <div class="flex gap-2">
+              <button type="button" onclick="closeModal()" class="w-1/2 bg-gray-200 text-gray-700 py-2 rounded font-medium">Batal</button>
+              <button type="submit" class="w-1/2 bg-indigo-600 text-white py-2 rounded font-medium hover:bg-indigo-700">Lanjut Pembayaran</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- STEP 2: Instruksi Pembayaran & Konfirmasi -->
+        <div id="step-payment" class="hidden text-center">
+          <h3 class="text-lg font-bold text-green-600 mb-2">Pesanan Berhasil Dibuat!</h3>
+          <p class="text-sm text-gray-600 mb-4">Silakan lakukan pembayaran sesuai instruksi di bawah ini:</p>
+
+          <div class="bg-gray-50 border p-4 rounded-lg mb-4 text-left">
+            <p class="text-xs text-gray-500">ID Pesanan: <span id="out-order-id" class="font-bold text-gray-800"></span></p>
+            <p class="text-xs text-gray-500">Total Harus Dibayar:</p>
+            <p id="out-pay-amount" class="text-xl font-bold text-indigo-600 mb-3"></p>
+
+            <div class="border-t pt-3 text-sm space-y-2">
+              <p><strong>Metode:</strong> <span id="out-method"></span></p>
+              <!-- Info Rekening / QRIS -->
+              <div id="payment-info" class="bg-white p-3 border rounded text-xs font-mono">
+                <!-- Diisi otomatis oleh JS -->
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 mb-4">Setelah transfer, klik tombol di bawah untuk konfirmasi ke admin via WhatsApp:</p>
+
+          <a id="wa-btn" href="#" target="_blank" class="block w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow hover:bg-green-700 transition">
+            📲 Konfirmasi via WhatsApp
+          </a>
+
+          <button onclick="closeModal()" class="mt-3 text-xs text-gray-400 underline">Tutup Halaman Ini</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // === NOMOR WHATSAPP ADMIN (Ganti dengan nomor WA milikmu, diawali 62) ===
+    const ADMIN_WA_NUMBER = "6282230676849"; 
+
+    // === INFO REKENING / PAYMENTS ===
+    const PAYMENT_DETAILS = {
+      "QRIS": "Menuju Konfirmasi Pembayaran terlebih dahulu untuk mendapatkan kode QR, silakan tekan tombol via Whatsapp berikut.",
+      "DANA": "DANA / Go-Pay: 0822-3067-6849 (a.n. JASA BY PADUKA KYLE)",
+      "BANK": "Bank BCA: 1234567890 (a.n. Kyle Market)\nBank Mandiri: 0987654321"
+    };
+
+    let products = [];
+    let selectedProduct = null;
+
+    async function loadProducts() {
+      const res = await fetch('/api/products');
+      products = await res.json();
+      const container = document.getElementById('product-list');
+      
+      if (products.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-T4">Belum ada produk/jasa. Tambahkan dari admin!</p>';
+        return;
+      }
+
+      container.innerHTML = products.map(p => `
+        <div class="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
+          <div>
+            <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded font-bold uppercase">${p.category}</span>
+            <h3 class="font-bold text-lg mt-1">${p.title}</h3>
+            <p class="text-sm text-gray-600">${p.description || ''}</p>
+            <p class="text-indigo-600 font-semibold mt-1">Rp ${p.price.toLocaleString('id-ID')}</p>
+          </div>
+          <button onclick="openModal(${p.id})" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 font-medium text-sm">Pesan</button>
+        </div>
+      `).join('');
+    }
+
+    function openModal(id) {
+      selectedProduct = products.find(p => p.id === id);
+      document.getElementById('modal-title').innerText = selectedProduct.title;
+      document.getElementById('modal-price').innerText = `Harga Total: Rp ${selectedProduct.price.toLocaleString('id-ID')}`;
+
+      const dpOpt = document.getElementById('dp-option');
+      if (selectedProduct.allow_dp) {
+        dpOpt.style.display = 'block';
+      } else {
+        dpOpt.style.display = 'none';
+        document.getElementById('payment-type').value = 'FULL';
+      }
+
+      // Reset tampilan ke Step 1
+      document.getElementById('step-form').classList.remove('hidden');
+      document.getElementById('step-payment').classList.add('hidden');
+
+      updatePaymentDetails();
+      document.getElementById('order-modal').classList.remove('hidden');
+    }
+
+    function updatePaymentDetails() {
+      const type = document.getElementById('payment-type').value;
+      let amount = selectedProduct.price;
+      if (type === 'DP') {
+        amount = selectedProduct.min_dp_amount || (selectedProduct.price / 2);
+      }
+      document.getElementById('pay-amount').innerText = `Rp ${amount.toLocaleString('id-ID')}`;
+    }
+
+    function closeModal() {
+      document.getElementById('order-modal').classList.add('hidden');
+    }
+
+    async function submitOrder(e) {
+      e.preventDefault();
+      const clientName = document.getElementById('client-name').value;
+      const clientWa = document.getElementById('client-wa').value;
+      const type = document.getElementById('payment-type').value;
+      const method = document.getElementById('payment-method').value;
+      const paid = type === 'DP' ? (selectedProduct.min_dp_amount || selectedProduct.price / 2) : selectedProduct.price;
+
+      const payload = {
+        product_id: selectedProduct.id,
+        client_name: clientName,
+        client_whatsapp: clientWa,
+        payment_type: type,
+        payment_method: method,
+        paid_amount: paid,
+        total_amount: selectedProduct.price
+      };
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      // Pindah ke Step 2 (Detail Pembayaran & WA)
+      document.getElementById('step-form').classList.add('hidden');
+      document.getElementById('step-payment').classList.remove('hidden');
+
+      document.getElementById('out-order-id').innerText = `#${data.orderId}`;
+      document.getElementById('out-pay-amount').innerText = `Rp ${paid.toLocaleString('id-ID')}`;
+      document.getElementById('out-method').innerText = method;
+      document.getElementById('payment-info').innerText = PAYMENT_DETAILS[method] || "Silakan hubungi admin untuk info pembayaran.";
+
+      // Format Pesan WhatsApp
+      const waText = `Halo Admin Kyle Market, saya ingin konfirmasi pesanan:\n\n` +
+        `🆔 *ID Pesanan:* #${data.orderId}\n` +
+        `📦 *Produk/Jasa:* ${selectedProduct.title}\n` +
+        `👤 *Nama:* ${clientName}\n` +
+        `📱 *WA:* ${clientWa}\n` +
+        `💳 *Tipe Bayar:* ${type} (Rp ${paid.toLocaleString('id-ID')})\n` +
+        `🏦 *Metode:* ${method}\n\n` +
+        `Saya sudah/akan melakukan pembayaran. Mohon dikonfirmasi ya!`;
+
+      const waUrl = `https://wa.me/${ADMIN_WA_NUMBER}?text=${encodeURIComponent(waText)}`;
+      document.getElementById('wa-btn').href = waUrl;
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
+
